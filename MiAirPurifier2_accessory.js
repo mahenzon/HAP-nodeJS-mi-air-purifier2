@@ -27,10 +27,12 @@ const showHumidity = true
 const showAirQuality = true
 
 // Mi Air Purifier [2] modes: https://github.com/aholstenson/miio/blob/master/docs/devices/air-purifier.md
-const IDLE = 'idle'
-const AUTO = 'auto'
-const SILENT = 'silent'
-const FAVORITE = 'favorite'
+const PurifierModes = {  
+  IDLE: 'idle',
+  AUTO: 'auto',
+  SILENT: 'silent',
+  FAVORITE: 'favorite',
+}
 
 const deviceNotConnected = ' is not connected!'
 
@@ -210,7 +212,7 @@ var MiAirPurifier2 = {
   setTargetAirPurifierState: function(state, callback) {
     if(outputLogs) console.log('Set target air purifier state to', state)
     if(this.device) {
-      this.device.setMode(state ? AUTO : FAVORITE)
+      this.device.setMode(state ? PurifierModes.AUTO : PurifierModes.FAVORITE)
         .then(mode => {
           this.targetAirPurifierState = state
           console.log('Set %s state to %s', this.name, mode)
@@ -230,7 +232,7 @@ var MiAirPurifier2 = {
       this.device.mode()
         .then(mode => {
           console.log('%s\'s mode is %s', this.name, mode)
-          this.externalSwitch = mode == SILENT
+          this.externalSwitch = mode == PurifierModes.SILENT
           callback(null, this.externalSwitch)
         })
         .catch(err => {
@@ -244,7 +246,7 @@ var MiAirPurifier2 = {
   setExternalSwitch: function(value, callback) {
     if(outputLogs) console.log('Set air purifier silent mode enabled to', value)
     if(this.device) {
-      this.device.setMode(value ? SILENT : AUTO)
+      this.device.setMode(value ? PurifierModes.SILENT : PurifierModes.AUTO)
         .then(mode => {
           this.externalSwitch = value
           console.log('Set %s mode to %s', this.name, mode)
@@ -434,7 +436,7 @@ function updateTargetState() {
 }
 
 function updateMode(mode) {
-  if (mode == FAVORITE) {
+  if (mode == PurifierModes.FAVORITE) {
     MiAirPurifier2.targetAirPurifierState = Characteristic.TargetAirPurifierState.MANUAL
   } else {
     MiAirPurifier2.targetAirPurifierState = Characteristic.TargetAirPurifierState.AUTO
