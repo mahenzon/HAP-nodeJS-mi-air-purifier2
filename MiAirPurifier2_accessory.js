@@ -7,13 +7,24 @@ const miio = require('miio')
 
 const outputLogs = false
 
+/* Accessory Modes
+  Note: every mode includes setting MANUAL (favorite) mode on set rotation speed
+
+  0:
+    - No ability to enable `silent` mode
+    - On accessory power on/off Air Purifier turns on/off
+  1:
+    - Silent mode is enabled by a separate Switch Accessory
+    - On accessory power on/off Air Purifier turns on/off
+
+  Set `accessoryMode` to the prefered mode
+*/
+const accessoryMode = 1
+
+
 const showTemperature = true
 const showHumidity = true
 const showAirQuality = true
-
-// Set silent mode when HomeKit device is set to off
-// else Mi Air Purifier will be set to idle
-// const silentOnPowerOff = true
 
 // Mi Air Purifier [2] modes: https://github.com/aholstenson/miio/blob/master/docs/devices/air-purifier.md
 const IDLE = 'idle'
@@ -78,6 +89,8 @@ var MiAirPurifier2 = {
   // Characteristic.TargetAirPurifierState.AUTO = 1;
   // READ & WRITE: https://github.com/KhaosT/HAP-NodeJS/blob/1f6c2728e1ad51e2711abba6779a72b522f84b34/lib/gen/HomeKitTypes.js#L2096
   targetAirPurifierState: 1,
+
+  externalSwitch: false,
 
 
   identify: function(callback) {
@@ -210,6 +223,41 @@ var MiAirPurifier2 = {
         })
     } else { callback(new Error(this.name + deviceNotConnected)) }
   },
+
+  getExternalSwitch: function(callback) {
+    if(outputLogs) console.log('Get air purifier silent mode enabled')
+    if(this.device) {
+      this.device.mode()
+        .then(mode => {
+          console.log('%s\'s mode is %s', this.name, mode)
+          this.externalSwitch = mode == SILENT
+          callback(null, this.externalSwitch)
+        })
+        .catch(err => {
+          const errLine = 'Error getting mode: ' + err
+          if(outputLogs) console.log(errLine)
+          callback(new Error(errLine))
+        })
+    } else { callback(new Error(this.name + deviceNotConnected)) }
+  },
+
+  setExternalSwitch: function(value, callback) {
+    if(outputLogs) console.log('Set air purifier silent mode enabled to', value)
+    if(this.device) {
+      this.device.setMode(value ? SILENT : AUTO)
+        .then(mode => {
+          this.externalSwitch = value
+          console.log('Set %s mode to %s', this.name, mode)
+          callback()
+        })
+        .catch(err => {
+          const errLine = 'Error setting silent mode: ' + err
+          if(outputLogs) console.log(errLine)
+          callback(new Error(errLine))
+        })
+    } else { callback(new Error(this.name + deviceNotConnected)) }
+  },
+
 }
 
 
@@ -314,6 +362,18 @@ airPurifier
     callback(null, MiAirPurifier2.getRotationSpeed())
   })
 
+if (accessoryMode == 1) {
+  airPurifier
+    .addService(Service.Switch)
+    .getCharacteristic(Characteristic.On)
+    .on('set', function(value, callback) { MiAirPurifier2.setExternalSwitch(value, callback) })
+    .on('get', function(callback) { MiAirPurifier2.getExternalSwitch(callback) })
+
+  airPurifier
+    .getService(Service.Switch)
+    .addCharacteristic(Characteristic.Name)
+    .setValue('Silent ' + MiAirPurifier2.name)
+}
 
 // Plus additional sensors which Mi Air Purifier 2 has
 
