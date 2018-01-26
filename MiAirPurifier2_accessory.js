@@ -44,6 +44,16 @@ const PurifierModes = {
   FAVORITE: 'favorite',
 }
 
+const LedBrightness = {
+  modes: ['bright', 'dim', 'off'],
+  getNext: function(current) {
+    const index = this.modes.indexOf(current) + 1
+    if (index < this.modes.length) {
+      return this.modes[index]
+    } else { return this.modes[0] }
+  },
+}
+
 const deviceNotConnected = ' is not connected!'
 
 var airQualityLevels = [
@@ -82,7 +92,7 @@ var MiAirPurifier2 = {
   address: '192.168.1.77',  // purifuer's IP. It's required for miio to discover device
 
   // It works well without token after running in terminal `miio discover --sync`, miio will resolve token automatically
-  // So if you don't want to provide device's token don't forget to comment out lines 87 and 341
+  // So if you don't want to provide device's token don't forget to comment out lines 97 and 364
   // It's totally unnecessary to provide token now but it's better to save it because it may be hidden with future device's software updates 
   token: '2b26525b0674c61e1893bc74fd2f38d6',
 
@@ -101,10 +111,23 @@ var MiAirPurifier2 = {
   targetAirPurifierState: 1,
 
 
-  identify: function(callback) {
-    if(outputLogs) console.log('%s identify.', this.name)
-    callback()
-    // TODO: blink with diode
+  identify: function(callback, paired) {
+    if(outputLogs) console.log('%s identify. Paired: %s', this.name, paired)
+    if(this.device) {
+      if(outputLogs) console.log('Starting blink!')
+      this.device.ledBrightness(LedBrightness.getNext(this.device.ledBrightness()))
+        .then(brightness => this.device.ledBrightness(LedBrightness.getNext(brightness)))
+        .then(brightness => this.device.ledBrightness(LedBrightness.getNext(brightness)))
+        .then(brightness => {
+          if(outputLogs) console.log('Blinked successfully!')
+          callback()
+        })
+        .catch(err => {
+          const errLine = 'Error getting current brightness: ' + err
+          if(outputLogs) console.log(errLine)
+          callback(new Error(errLine))
+        })
+      } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
   getCurrentTemperature: function(callback) { 
@@ -194,8 +217,8 @@ var MiAirPurifier2 = {
         .catch(err => { if(outputLogs) console.log('Error getting %s mode!: %s', this.name, err) })
 
       this.device.setFavoriteLevel(Math.ceil(speed / 6.25))
-        .then(level => {
-          if(outputLogs) console.log('Set %s favorite level to %s (percent: %s)', this.name, level, speed)
+        .then(() => {
+          if(outputLogs) console.log('Set %s favorite level to %s percent', this.name, speed)
           callback()
         })
         .catch(err => {
@@ -366,7 +389,7 @@ miio.device({
         updateExternalSwitch(modeSilent)
         break
       case 2:
-        var active = modeSilent ? 0 : 1
+        var active = (modeSilent || mode == PurifierModes.IDLE) ? 0 : 1
         updateActiveState(active)
         updateCurrentState(active * 2)
         break
@@ -398,7 +421,7 @@ airPurifier
 
 // listen for the "identify" event for this Accessory
 airPurifier.on('identify', function(paired, callback) {
-  MiAirPurifier2.identify(callback)
+  MiAirPurifier2.identify(callback, paired)
 })
 
 
@@ -543,5 +566,3 @@ function updateAirQuality(pm2_5) {
     .getCharacteristic(Characteristic.PM2_5Density)
     .updateValue(pm2_5)
 }
-
-
