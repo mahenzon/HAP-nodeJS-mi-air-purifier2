@@ -73,8 +73,8 @@ var MiAirPurifier2 = {
 
   address: '10.0.1.228',  // purifuer's IP. It's required for miio to discover device
 
-  // // It works well withiout token after running in terminal `miio --discover --sync`, miio will resolve token automatically
-  // // If you'll need to provide device's token don't forget to uncomment line 230 too
+  // // It works well withiout token after running in terminal `miio discover --sync`, miio will resolve token automatically
+  // // If you'll need to provide device's token don't forget to uncomment line 281 too
   // // But even in the miio repo device is created with only address provided: https://github.com/aholstenson/miio
   // token: '2b26525b0674c61e1893bc74fd2f38d6',
 
@@ -279,7 +279,7 @@ airPurifier.pincode = MiAirPurifier2.pincode
 miio.device({
   address: MiAirPurifier2.address,
   // token: MiAirPurifier2.token,  // uncomment this line if you want to provide token
-  // model: MiAirPurifier2.model,  // not required
+  model: MiAirPurifier2.model,  // not required
 }).then(device => {
   if(outputLogs) console.log('Connection to Mi Air Purifier 2 inited')
 
@@ -300,11 +300,13 @@ miio.device({
 
   device.on('modeChanged', mode => {
     if(outputLogs) console.log('Mode is now', mode)
+    if ((accessoryMode == 1) && (mode == PurifierModes.SILENT)) updateExternalSwitch(true)
     updateMode(mode)
   })
 
   device.on('powerChanged', power => {
     if(outputLogs) console.log('Power is now', power)
+    if ((accessoryMode == 1) && (power == false)) updateExternalSwitch(false)
     updateActiveState(power ? 1 : 0)
   })
 
@@ -411,6 +413,13 @@ if (showAirQuality) {
 
 
 //
+
+function updateExternalSwitch(state) {
+  airPurifier
+    .getService(Service.Switch)
+    .getCharacteristic(Characteristic.On)
+    .updateValue(state)
+}
 
 function updateActiveState(active) {
   airPurifier
