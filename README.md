@@ -4,15 +4,42 @@
 ## Features
 
 - [x] Show and toggle power
-- [x] Switch between Favorite and Auto modes
+- [x] Switch between Favorite, Auto, Silent and Idle modes
 - [x] Show sensors data (temperature, relative humidity, air quality (relative and PM2.5))
 - [x] Get updates on events (mode and power state change, new data on sensors)
-- [ ] Change fan speed
-- [ ] Set _silent_ mode
-- [ ] Blink LED on `identify` event
+- [x] Change fan speed
+- [x] Blink LED on `identify` event
 
+___
+# HOW TO:
 
-**README will be updated with v1.0 release.** It will provide a proper _HOW TO_
+- **Make sure you have HAP-NodeJS installed**
+- **Make sure you have NodeJS version >= 8** (tested on 9.4.0)
+- Go to HAP-NodeJS folder and run `npm install miio` (tested on 0.15.4)
+- Save [MiAirPurifier2_accessory.js](https://github.com/surik00/HAP-nodeJS-mi-air-purifier2/blob/master/MiAirPurifier2_accessory.js) to the `HAP-NodeJS/accessories` folder
+- Run `miio discover --sync` in terminal, wait for something to be printed in terminal. If there are any miIO devices, it will discover it. Output looks like this:
+
+```bash
+root@minibian[rw]:~/Documents/HomeKit/HAP-NodeJS$ miio discover --sync
+ INFO  Discovering devices. Press Ctrl+C to stop.
+
+Device ID: 12345678
+Model info: zhimi.airpurifier.m1
+Address: 192.168.1.77
+Token: 2b26525b0674c61e1893bc74fd2f38d6 via auto-token
+Support: At least basic
+```
+
+You need device's IP address. And it will be better to save token too, because it may be hidden with future device's software updates.
+
+*I recommend to make a reservation on your Wi-Fi router for your device.*
+
+- Edit `MiAirPurifier2_accessory.js` file's lines: you have to provide unique mac address (just use device's one) in `username` and device's IP address in `address`. Mac address has to be unique to let HomeKit remember devices.
+- Optional: edit `serialNumber`, `firmware` and `token`.
+- On line 32 set accessory mode. Default is 2
+
+- Run HAP-nodeJS server!
+
 ___
 
 
