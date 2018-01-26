@@ -24,12 +24,18 @@ const outputLogs = false
       on accessory power on Air Purifier turns it's auto mode on
     - If Air Purifier's state is idle (powered off), 
       it can be powered on by enabling accessory in the Home app
+  3:
+    - On accessory power on/off Air Purifier turns on/off
+    - On set target state MANUAL Purifier goes Silent
+    - On set rotation speed (any change) it goes favorite,
+      target state goes MANUAL, leaving only "AUTO" button to disable FAVORITE
 
   Set `accessoryMode` to the prefered mode
   Default is 2 (does anyone ever need to turn off Mi Air Purifier??)
 
 */
-const accessoryMode = 2
+
+const accessoryMode = 3
 
 
 const showTemperature = true
@@ -297,7 +303,7 @@ var MiAirPurifier2 = {
   setTargetAirPurifierState: function(callback, state) {
     if(outputLogs) console.log('Set target air purifier state to', state)
     if(this.device) {
-      this.device.setMode(state ? PurifierModes.AUTO : PurifierModes.FAVORITE)
+      this.device.setMode(state ? PurifierModes.AUTO : (accessoryMode == 3 ? PurifierModes.SILENT : PurifierModes.FAVORITE))
         .then(mode => {
           this.targetAirPurifierState = state
           if(outputLogs) console.log('Set %s target state to %s', this.name, mode)
@@ -533,7 +539,7 @@ function updateTargetState() {
 }
 
 function updateMode(mode) {
-  if (mode == PurifierModes.FAVORITE) {
+  if (mode == PurifierModes.FAVORITE || ((accessoryMode == 3) && (mode == PurifierModes.SILENT))) {
     MiAirPurifier2.targetAirPurifierState = Characteristic.TargetAirPurifierState.MANUAL
   } else {
     MiAirPurifier2.targetAirPurifierState = Characteristic.TargetAirPurifierState.AUTO

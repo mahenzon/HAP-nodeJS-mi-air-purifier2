@@ -36,7 +36,7 @@ You need device's IP address. And it will be better to save token too, because i
 
 - Edit `MiAirPurifier2_accessory.js` file's lines: you have to provide unique mac address (just use device's one) in `username` and device's IP address in `address`. Mac address has to be unique to let HomeKit remember devices.
 - Optional: edit `serialNumber`, `firmware` and `token`.
-- On line 32 set accessory mode. Default is 2
+- On line 38 set accessory mode. Default is 3
 
 - Run HAP-nodeJS server!
 
