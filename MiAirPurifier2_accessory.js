@@ -82,7 +82,7 @@ var MiAirPurifier2 = {
   address: '192.168.1.77',  // purifuer's IP. It's required for miio to discover device
 
   // It works well without token after running in terminal `miio discover --sync`, miio will resolve token automatically
-  // So if you don't want to provide device's token don't forget to comment out lines 77 and 304
+  // So if you don't want to provide device's token don't forget to comment out lines 87 and 341
   // It's totally unnecessary to provide token now but it's better to save it because it may be hidden with future device's software updates 
   token: '2b26525b0674c61e1893bc74fd2f38d6',
 
@@ -187,8 +187,8 @@ var MiAirPurifier2 = {
           if (mode != PurifierModes.FAVORITE) {
             if(outputLogs) console.log('Current mode is %s, changing to %s', mode, PurifierModes.FAVORITE)
             this.device.setMode(PurifierModes.FAVORITE)
-              .then(m => console.log('Successfully changed state to', m))
-              .catch(err => console.log('Error setting mode! Error is:', err))
+              .then(m => { if(outputLogs) console.log('Successfully changed state to', m) })
+              .catch(err => { if(outputLogs) console.log('Error setting mode! Error is:', err) })
           }
         })
         .catch(err => { if(outputLogs) console.log('Error getting %s mode!: %s', this.name, err) })
@@ -209,31 +209,58 @@ var MiAirPurifier2 = {
   getActiveState: function(callback) {
     if(outputLogs) console.log('Get active state (power)')
     if(this.device) {
-      this.device.power()
-        .then(power => callback(null, power))
-        .catch(err => {
-          const errLine = 'Error getting active state (power): ' + err
-          if(outputLogs) console.log(errLine)
-          callback(new Error(errLine))
-        })
+      if (accessoryMode == 2) {
+        this.device.mode()
+          .then(mode => {
+            if ((mode == PurifierModes.SILENT) || (mode == PurifierModes.IDLE)) {
+              callback(null, false)
+            } else { callback(null, true) }
+          })
+          .catch(err => {
+            const errLine = 'Error getting mode: ' + err
+            if(outputLogs) console.log(errLine)
+            callback(new Error(errLine))
+          })
+      } else { 
+        this.device.power()
+          .then(power => callback(null, power))
+          .catch(err => {
+            const errLine = 'Error getting active state (power): ' + err
+            if(outputLogs) console.log(errLine)
+            callback(new Error(errLine))
+          })
+      }
     } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
   setActiveState: function(callback, active) {
     if(outputLogs) console.log('Set active state to', active)
     if (this.device) {
-      this.device.setPower(Boolean(active))
-        .then(power => {
-          console.log('Set %s active state to %s', this.name, active)
-          callback()
-          this.currentAirPurifierState = active * 2
-          updateCurrentState()
-        })
-        .catch(err => {
-          const errLine = 'Error setting active state (power): ' + err
-          if(outputLogs) console.log(errLine)
-          callback(new Error(errLine))
-        })
+      if ((accessoryMode == 2) && (active == 0)) {
+        this.device.setMode(PurifierModes.SILENT)
+          .then(mode => {
+            if(outputLogs) console.log('Set %s mode to %s (active state to %s)', this.name, mode, active)
+            callback()
+            updateCurrentState(0)
+          })
+          .catch(err => {
+            const errLine = 'Error changing active state (setting SILENT): ' + err
+            if(outputLogs) console.log(errLine)
+            callback(new Error(errLine))
+          })        
+      } else {
+        this.device.setPower(Boolean(active))
+          .then(power => {
+            if(outputLogs) console.log('Set %s active state to %s', this.name, active)
+            callback()
+          updateCurrentState(active * 2)
+          })
+          .catch(err => {
+            const errLine = 'Error setting active state (power): ' + err
+            if(outputLogs) console.log(errLine)
+            callback(new Error(errLine))
+          })
+      }
     } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
@@ -250,7 +277,7 @@ var MiAirPurifier2 = {
       this.device.setMode(state ? PurifierModes.AUTO : PurifierModes.FAVORITE)
         .then(mode => {
           this.targetAirPurifierState = state
-          console.log('Set %s target state to %s', this.name, mode)
+          if(outputLogs) console.log('Set %s target state to %s', this.name, mode)
           callback()
         })
         .catch(err => {
@@ -266,7 +293,7 @@ var MiAirPurifier2 = {
     if(this.device) {
       this.device.mode()
         .then(mode => {
-          console.log('%s\'s mode is %s', this.name, mode)
+          if(outputLogs) console.log('%s mode is %s', this.name, mode)
           callback(null, (mode == PurifierModes.SILENT))
         })
         .catch(err => {
@@ -282,7 +309,7 @@ var MiAirPurifier2 = {
     if(this.device) {
       this.device.setMode(value ? PurifierModes.SILENT : PurifierModes.AUTO)
         .then(mode => {
-          console.log('Set %s mode to %s', this.name, mode)
+          if(outputLogs) console.log('Set %s mode to %s', this.name, mode)
           callback()
         })
         .catch(err => {
@@ -333,7 +360,17 @@ miio.device({
 
   device.on('modeChanged', mode => {
     if(outputLogs) console.log('Mode is now', mode)
-    if (accessoryMode == 1) updateExternalSwitch(mode == PurifierModes.SILENT)
+    var modeSilent = mode == PurifierModes.SILENT
+    switch (accessoryMode) {
+      case 1:
+        updateExternalSwitch(modeSilent)
+        break
+      case 2:
+        var active = modeSilent ? 0 : 1
+        updateActiveState(active)
+        updateCurrentState(active * 2)
+        break
+    }
     updateMode(mode)
   })
 
@@ -454,11 +491,11 @@ function updateActiveState(active) {
     .getService(Service.AirPurifier)
     .getCharacteristic(Characteristic.Active)
     .updateValue(active)
-  MiAirPurifier2.currentAirPurifierState = active * 2
-  updateCurrentState()
+  updateCurrentState(active * 2)
 }
 
-function updateCurrentState() {
+function updateCurrentState(value) {
+  MiAirPurifier2.currentAirPurifierState = value
   airPurifier
     .getService(Service.AirPurifier)
     .getCharacteristic(Characteristic.CurrentAirPurifierState)
