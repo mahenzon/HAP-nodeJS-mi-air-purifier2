@@ -8,7 +8,9 @@ const miio = require('miio')
 const outputLogs = false
 
 /* Accessory Modes
-  Note: every mode includes setting MANUAL (favorite) mode on set rotation speed
+
+  Note: every mode includes ability to enable MANUAL (favorite) mode
+  On `set rotation speed` action MANUAL state (favorite mode) automatically enables
 
   0:
     - No ability to enable `silent` mode
@@ -16,10 +18,18 @@ const outputLogs = false
   1:
     - Silent mode is enabled by a separate Switch Accessory
     - On accessory power on/off Air Purifier turns on/off
+  2:
+    - No ability to power off Air Purifier
+    - On accessory power off Air Purifier turns it's silent mode on,
+      on accessory power on Air Purifier turns it's auto mode on
+    - If Air Purifier's state is idle (powered off), 
+      it can be powered on by enabling accessory in the Home app
 
   Set `accessoryMode` to the prefered mode
+  Default is 2 (does anyone ever need to turn off Mi Air Purifier??)
+
 */
-const accessoryMode = 1
+const accessoryMode = 2
 
 
 const showTemperature = true
