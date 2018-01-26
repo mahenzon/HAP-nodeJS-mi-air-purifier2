@@ -92,8 +92,6 @@ var MiAirPurifier2 = {
   // READ & WRITE: https://github.com/KhaosT/HAP-NodeJS/blob/1f6c2728e1ad51e2711abba6779a72b522f84b34/lib/gen/HomeKitTypes.js#L2096
   targetAirPurifierState: 1,
 
-  externalSwitch: false,
-
 
   identify: function(callback) {
     if(outputLogs) console.log('%s identify.', this.name)
@@ -185,7 +183,7 @@ var MiAirPurifier2 = {
     } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
-  setActiveState: function(active, callback) {
+  setActiveState: function(callback, active) {
     if(outputLogs) console.log('Set active state to', active)
     if (this.device) {
       this.device.setPower(Boolean(active))
@@ -209,7 +207,7 @@ var MiAirPurifier2 = {
     } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
-  setTargetAirPurifierState: function(state, callback) {
+  setTargetAirPurifierState: function(callback, state) {
     if(outputLogs) console.log('Set target air purifier state to', state)
     if(this.device) {
       this.device.setMode(state ? PurifierModes.AUTO : PurifierModes.FAVORITE)
@@ -232,8 +230,7 @@ var MiAirPurifier2 = {
       this.device.mode()
         .then(mode => {
           console.log('%s\'s mode is %s', this.name, mode)
-          this.externalSwitch = mode == PurifierModes.SILENT
-          callback(null, this.externalSwitch)
+          callback(null, (mode == PurifierModes.SILENT))
         })
         .catch(err => {
           const errLine = 'Error getting mode: ' + err
@@ -243,12 +240,11 @@ var MiAirPurifier2 = {
     } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
-  setExternalSwitch: function(value, callback) {
+  setExternalSwitch: function(callback, value) {
     if(outputLogs) console.log('Set air purifier silent mode enabled to', value)
     if(this.device) {
       this.device.setMode(value ? PurifierModes.SILENT : PurifierModes.AUTO)
         .then(mode => {
-          this.externalSwitch = value
           console.log('Set %s mode to %s', this.name, mode)
           callback()
         })
@@ -300,7 +296,7 @@ miio.device({
 
   device.on('modeChanged', mode => {
     if(outputLogs) console.log('Mode is now', mode)
-    if ((accessoryMode == 1) && (mode == PurifierModes.SILENT)) updateExternalSwitch(true)
+    if (accessoryMode == 1) updateExternalSwitch(mode == PurifierModes.SILENT)
     updateMode(mode)
   })
 
@@ -339,7 +335,7 @@ airPurifier
 airPurifier
   .getService(Service.AirPurifier)
   .getCharacteristic(Characteristic.Active)
-  .on('set', function(value, callback) { MiAirPurifier2.setActiveState(value, callback) })
+  .on('set', function(value, callback) { MiAirPurifier2.setActiveState(callback, value) })
   .on('get', function(callback) { MiAirPurifier2.getActiveState(callback) })
 
 // Purifier states: INACTIVE, IDLE, PURIFYING_AIR
@@ -352,7 +348,7 @@ airPurifier
 airPurifier
   .getService(Service.AirPurifier)
   .getCharacteristic(Characteristic.TargetAirPurifierState)
-  .on('set', function(value, callback) { MiAirPurifier2.setTargetAirPurifierState(value, callback) })
+  .on('set', function(value, callback) { MiAirPurifier2.setTargetAirPurifierState(callback, value) })
   .on('get', function(callback) { MiAirPurifier2.getTargetAirPurifierState(callback) })
 
 airPurifier
@@ -370,7 +366,7 @@ if (accessoryMode == 1) {
   airPurifier
     .addService(Service.Switch)
     .getCharacteristic(Characteristic.On)
-    .on('set', function(value, callback) { MiAirPurifier2.setExternalSwitch(value, callback) })
+    .on('set', function(value, callback) { MiAirPurifier2.setExternalSwitch(callback, value) })
     .on('get', function(callback) { MiAirPurifier2.getExternalSwitch(callback) })
 
   airPurifier
