@@ -62,8 +62,6 @@ var MiAirPurifier2 = {
   username: 'AA:BB:CC:DD:EE:FF',  // MAC like address used by HomeKit to differentiate accessories.
   model: 'zhimi.airpurifier.m1',  // model (optional for homekit and miio)
 
-  rotationSpeed: 69,
-
   // Optional parameters to be shown in the Home app
   manufacturer: 'Xiaomi',
   serialNumber: "12345678",  // your air purifier's serial number
@@ -71,12 +69,12 @@ var MiAirPurifier2 = {
 
   device: undefined,  // will be set after discovering the device
 
-  address: '10.0.1.228',  // purifuer's IP. It's required for miio to discover device
+  address: '192.168.1.77',  // purifuer's IP. It's required for miio to discover device
 
-  // // It works well withiout token after running in terminal `miio discover --sync`, miio will resolve token automatically
-  // // If you'll need to provide device's token don't forget to uncomment line 281 too
-  // // But even in the miio repo device is created with only address provided: https://github.com/aholstenson/miio
-  // token: '2b26525b0674c61e1893bc74fd2f38d6',
+  // It works well without token after running in terminal `miio discover --sync`, miio will resolve token automatically
+  // So if you don't want to provide device's token don't forget to comment out lines 77 and 304
+  // It's totally unnecessary to provide token now but it's better to save it because it may be hidden with future device's software updates 
+  token: '2b26525b0674c61e1893bc74fd2f38d6',
 
   // // The value property of CurrentAirPurifierState must be one of the following:
   // Characteristic.CurrentAirPurifierState.INACTIVE = 0;
@@ -158,16 +156,44 @@ var MiAirPurifier2 = {
     } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
-  getRotationSpeed: function() {
+  getRotationSpeed: function(callback) {
     if(outputLogs) console.log('Get rotation speed')
-    // TODO: Implement device.favoriteLevel() between 0 and 16. (* 6.25)
-    return this.rotationSpeed
+    if(this.device) {
+      this.device.favoriteLevel()
+        .then(level => callback(null, level * 6.25))
+        .catch(err => {
+          const errLine = 'Error getting rotation speed: ' + err
+          if(outputLogs) console.log(errLine)
+          callback(new Error(errLine))
+        })
+    } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
-  setRotationSpeed: function(speed) {
+  setRotationSpeed: function(callback, speed) {
     if(outputLogs) console.log('Set rotation speed to', speed)
-    // TODO: Implement device.setFavoriteLevel(number) to set value between 0 and 16. (/ 6.25)
-    this.rotationSpeed = speed
+    if (this.device) {
+      this.device.mode()
+        .then(mode => {
+          if (mode != PurifierModes.FAVORITE) {
+            if(outputLogs) console.log('Current mode is %s, changing to %s', mode, PurifierModes.FAVORITE)
+            this.device.setMode(PurifierModes.FAVORITE)
+              .then(m => console.log('Successfully changed state to', m))
+              .catch(err => console.log('Error setting mode! Error is:', err))
+          }
+        })
+        .catch(err => { if(outputLogs) console.log('Error getting %s mode!: %s', this.name, err) })
+
+      this.device.setFavoriteLevel(Math.ceil(speed / 6.25))
+        .then(level => {
+          if(outputLogs) console.log('Set %s favorite level to %s (percent: %s)', this.name, level, speed)
+          callback()
+        })
+        .catch(err => {
+          const errLine = 'Error setting rotation speed: ' + err
+          if(outputLogs) console.log(errLine)
+          callback(new Error(errLine))
+        })
+    } else { callback(new Error(this.name + deviceNotConnected)) }
   },
 
   getActiveState: function(callback) {
@@ -188,6 +214,7 @@ var MiAirPurifier2 = {
     if (this.device) {
       this.device.setPower(Boolean(active))
         .then(power => {
+          console.log('Set %s active state to %s', this.name, active)
           callback()
           this.currentAirPurifierState = active * 2
           updateCurrentState()
@@ -213,7 +240,7 @@ var MiAirPurifier2 = {
       this.device.setMode(state ? PurifierModes.AUTO : PurifierModes.FAVORITE)
         .then(mode => {
           this.targetAirPurifierState = state
-          console.log('Set %s state to %s', this.name, mode)
+          console.log('Set %s target state to %s', this.name, mode)
           callback()
         })
         .catch(err => {
@@ -274,7 +301,7 @@ airPurifier.pincode = MiAirPurifier2.pincode
 // Initialize connection to Mi Air Purifier 2
 miio.device({
   address: MiAirPurifier2.address,
-  // token: MiAirPurifier2.token,  // uncomment this line if you want to provide token
+  token: MiAirPurifier2.token,  // comment this line if you don't want to provide token
   model: MiAirPurifier2.model,  // not required
 }).then(device => {
   if(outputLogs) console.log('Connection to Mi Air Purifier 2 inited')
@@ -354,13 +381,8 @@ airPurifier
 airPurifier
   .getService(Service.AirPurifier)
   .getCharacteristic(Characteristic.RotationSpeed)
-  .on('set', function(value, callback) {
-    MiAirPurifier2.setRotationSpeed(value)
-    callback()
-  })
-  .on('get', function(callback) {
-    callback(null, MiAirPurifier2.getRotationSpeed())
-  })
+  .on('set', function(value, callback) { MiAirPurifier2.setRotationSpeed(callback, value) })
+  .on('get', function(callback) { MiAirPurifier2.getRotationSpeed(callback) })
 
 if (accessoryMode == 1) {
   airPurifier
@@ -447,13 +469,6 @@ function updateMode(mode) {
     MiAirPurifier2.targetAirPurifierState = Characteristic.TargetAirPurifierState.AUTO
   }
   updateTargetState()
-}
-
-function updateRotationSpeed() {
-  airPurifier
-    .getService(Service.AirPurifier)
-    .getCharacteristic(Characteristic.RotationSpeed)
-    .updateValue(MiAirPurifier2.getRotationSpeed())
 }
 
 function updateTemperature(temperature) {
