@@ -572,3 +572,14 @@ function updateAirQuality(pm2_5) {
     .getCharacteristic(Characteristic.PM2_5Density)
     .updateValue(pm2_5)
 }
+
+setInterval(function() {
+  // We need to keep the device up and running
+  // so lets trigger any device's method to keep it alive.
+  // If we don't use this method HAP will tell us that there
+  // is no reponse for a minute or so if we try to change anything
+  if (showTemperature)
+    updateTemperature()
+  else
+    MiAirPurifier2.device.power()
+}, 300000);
