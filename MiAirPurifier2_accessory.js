@@ -579,7 +579,9 @@ setInterval(function() {
   // If we don't use this method HAP will tell us that there
   // is no reponse for a minute or so if we try to change anything
   if (showTemperature)
-    updateTemperature()
+    MiAirPurifier2.getCurrentTemperature(function (n, temperature) {
+      updateTemperature(temperature)
+    })
   else
     MiAirPurifier2.device.power()
 }, 300000);
